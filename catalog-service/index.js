@@ -5,6 +5,7 @@ const helmet = require('helmet');
 const swaggerJsdoc = require('swagger-jsdoc');
 const swaggerUi = require('swagger-ui-express');
 const connectDatabase = require('./data/database');
+const { connectRabbitMQ } = require('./business/rabbitmq');
 const catalogRoutes = require('./presentation/catalogRoutes');
 
 const app = express();
@@ -45,6 +46,7 @@ app.use('/catalog', catalogRoutes);
 const startServer = async () => {
     try {
         await connectDatabase();
+        await connectRabbitMQ();
         app.listen(PORT, () => {
             console.log(`Catalog Service running on http://localhost:${PORT}`);
             console.log(`Swagger docs: http://localhost:${PORT}/api-docs`);

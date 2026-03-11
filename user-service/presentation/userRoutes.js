@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const userService = require('../business/userService');
+const { publish } = require('../business/rabbitmq');
 const authenticate = require('./authMiddleware');
 
 /**
@@ -90,15 +91,7 @@ router.post('/register', async (req, res) => {
             return res.status(400).json({ error: 'Password must be at least 6 characters.' });
         }
         const user = await userService.register(email, username, password);
-        try {
-            await fetch(`${process.env.NOTIFICATION_SERVICE_URL}/notifications/welcome`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, username })
-            });
-        } catch (notifErr) {
-            console.error('Failed to call notification service:', notifErr.message);
-        }
+        publish('user.registered', { email, username });
         res.status(201).json({ message: 'User registered successfully', userId: user._id });
     } catch (err) {
         res.status(400).json({ error: err.message });

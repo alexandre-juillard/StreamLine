@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const catalogService = require('../business/catalogService');
+const { publish } = require('../business/rabbitmq');
 const authenticate = require('./authMiddleware');
 
 /**
@@ -81,6 +82,7 @@ router.post('/', authenticate, async (req, res) => {
             return res.status(400).json({ error: 'Title and artist are required.' });
         }
         const song = await catalogService.addSong(req.body);
+        publish('track.added', { email: req.user.email, title: song.title, artist: song.artist });
         res.status(201).json(song);
     } catch (err) {
         res.status(400).json({ error: err.message });

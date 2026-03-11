@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const playlistService = require('../business/playlistService');
+const { publish } = require('../business/rabbitmq');
 const authenticate = require('./authMiddleware');
 
 /**
@@ -69,15 +70,7 @@ router.post('/', authenticate, async (req, res) => {
             return res.status(400).json({ error: 'Playlist name is required.' });
         }
         const playlist = await playlistService.createPlaylist(name.trim(), req.user.id);
-        try {
-            await fetch(`${process.env.NOTIFICATION_SERVICE_URL}/notifications/confirmation`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email: req.user.email, action: `Playlist "${name.trim()}" created` })
-            });
-        } catch (notifErr) {
-            console.error('Failed to call notification service:', notifErr.message);
-        }
+        publish('playlist.created', { email: req.user.email, name: name.trim() });
         res.status(201).json(playlist);
     } catch (err) {
         res.status(400).json({ error: err.message });
@@ -185,15 +178,6 @@ router.post('/:id/songs', authenticate, async (req, res) => {
             return res.status(400).json({ error: 'songId is required.' });
         }
         const playlist = await playlistService.addSongToPlaylist(req.params.id, songId, req.user.id);
-        try {
-            await fetch(`${process.env.NOTIFICATION_SERVICE_URL}/notifications/confirmation`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email: req.user.email, action: 'Song added to playlist' })
-            });
-        } catch (notifErr) {
-            console.error('Failed to call notification service:', notifErr.message);
-        }
         res.json(playlist);
     } catch (err) {
         if (err.name === 'CastError') {
@@ -240,15 +224,6 @@ router.delete('/:id/songs/:songId', authenticate, async (req, res) => {
     // Remove a song from a playlist
     try {
         const playlist = await playlistService.removeSongFromPlaylist(req.params.id, req.params.songId, req.user.id);
-        try {
-            await fetch(`${process.env.NOTIFICATION_SERVICE_URL}/notifications/confirmation`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email: req.user.email, action: 'Song removed from playlist' })
-            });
-        } catch (notifErr) {
-            console.error('Failed to call notification service:', notifErr.message);
-        }
         res.json(playlist);
     } catch (err) {
         if (err.name === 'CastError') {

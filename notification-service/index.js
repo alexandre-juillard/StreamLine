@@ -5,6 +5,7 @@ const helmet = require('helmet');
 const swaggerJsdoc = require('swagger-jsdoc');
 const swaggerUi = require('swagger-ui-express');
 const notificationRoutes = require('./presentation/notificationRoutes');
+const { startConsumer } = require('./business/rabbitmqConsumer');
 
 const app = express();
 const PORT = process.env.PORT || 8084;
@@ -31,8 +32,13 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 app.use('/notifications', notificationRoutes);
 
-// Start server (no database needed for notification service)
-const startServer = () => {
+// Start server and RabbitMQ consumer
+const startServer = async () => {
+    try {
+        await startConsumer();
+    } catch (err) {
+        console.error('Failed to start RabbitMQ consumer:', err.message);
+    }
     app.listen(PORT, () => {
         console.log(`Notification Service running on http://localhost:${PORT}`);
         console.log(`Swagger docs: http://localhost:${PORT}/api-docs`);

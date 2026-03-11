@@ -15,6 +15,22 @@ services:
     networks:
       - streamline-network
 
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    ports:
+      - "15672:15672"
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+    networks:
+      - streamline-network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   mongo-users:
     image: mongo:7
     container_name: mongo-users
@@ -46,10 +62,12 @@ services:
       - PORT=8081
       - MONGODB_URI=mongodb://mongo-users:27017/streamline-users
       - JWT_SECRET=a7cc916f35d26f09ec3af3dee26b2ea8
-      - NOTIFICATION_SERVICE_URL=http://notification-service:8084
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
     depends_on:
-      - mongo-users
-      - notification-service
+      rabbitmq:
+        condition: service_healthy
+      mongo-users:
+        condition: service_started
     networks:
       - streamline-network
 
@@ -60,8 +78,12 @@ services:
       - PORT=8082
       - MONGODB_URI=mongodb://mongo-catalog:27017/streamline-catalog
       - JWT_SECRET=a7cc916f35d26f09ec3af3dee26b2ea8
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
     depends_on:
-      - mongo-catalog
+      rabbitmq:
+        condition: service_healthy
+      mongo-catalog:
+        condition: service_started
     networks:
       - streamline-network
 
@@ -72,8 +94,12 @@ services:
       - PORT=8082
       - MONGODB_URI=mongodb://mongo-catalog:27017/streamline-catalog
       - JWT_SECRET=a7cc916f35d26f09ec3af3dee26b2ea8
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
     depends_on:
-      - mongo-catalog
+      rabbitmq:
+        condition: service_healthy
+      mongo-catalog:
+        condition: service_started
     networks:
       - streamline-network
 
@@ -85,12 +111,16 @@ services:
       - MONGODB_URI=mongodb://mongo-playlists:27017/streamline-playlists
       - JWT_SECRET=a7cc916f35d26f09ec3af3dee26b2ea8
       - CATALOG_SERVICE_URL=http://nginx-lb:8080
-      - NOTIFICATION_SERVICE_URL=http://notification-service:8084
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
     depends_on:
-      - mongo-playlists
-      - catalog-service-1
-      - catalog-service-2
-      - notification-service
+      rabbitmq:
+        condition: service_healthy
+      mongo-playlists:
+        condition: service_started
+      catalog-service-1:
+        condition: service_started
+      catalog-service-2:
+        condition: service_started
     networks:
       - streamline-network
 
@@ -102,12 +132,16 @@ services:
       - MONGODB_URI=mongodb://mongo-playlists:27017/streamline-playlists
       - JWT_SECRET=a7cc916f35d26f09ec3af3dee26b2ea8
       - CATALOG_SERVICE_URL=http://nginx-lb:8080
-      - NOTIFICATION_SERVICE_URL=http://notification-service:8084
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
     depends_on:
-      - mongo-playlists
-      - catalog-service-1
-      - catalog-service-2
-      - notification-service
+      rabbitmq:
+        condition: service_healthy
+      mongo-playlists:
+        condition: service_started
+      catalog-service-1:
+        condition: service_started
+      catalog-service-2:
+        condition: service_started
     networks:
       - streamline-network
 
@@ -120,6 +154,10 @@ services:
       - SMTP_PORT=2525
       - SMTP_USER=90f364d48b9196
       - SMTP_PASS=bb47be858a3b95
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
     networks:
       - streamline-network
 
