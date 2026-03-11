@@ -1,0 +1,95 @@
+services:
+  mongo-users:
+    image: mongo:7
+    container_name: mongo-users
+    volumes:
+      - mongo-users-data:/data/db
+    networks:
+      - streamline-network
+
+  mongo-catalog:
+    image: mongo:7
+    container_name: mongo-catalog
+    volumes:
+      - mongo-catalog-data:/data/db
+    networks:
+      - streamline-network
+
+  mongo-playlists:
+    image: mongo:7
+    container_name: mongo-playlists
+    volumes:
+      - mongo-playlists-data:/data/db
+    networks:
+      - streamline-network
+
+  user-service:
+    build: ./user-service
+    container_name: user-service
+    ports:
+      - "8081:8081"
+    environment:
+      - PORT=8081
+      - MONGODB_URI=mongodb://mongo-users:27017/streamline-users
+      - JWT_SECRET=a7cc916f35d26f09ec3af3dee26b2ea8
+      - NOTIFICATION_SERVICE_URL=http://notification-service:8084
+    depends_on:
+      - mongo-users
+      - notification-service
+    networks:
+      - streamline-network
+
+  catalog-service:
+    build: ./catalog-service
+    container_name: catalog-service
+    ports:
+      - "8082:8082"
+    environment:
+      - PORT=8082
+      - MONGODB_URI=mongodb://mongo-catalog:27017/streamline-catalog
+      - JWT_SECRET=a7cc916f35d26f09ec3af3dee26b2ea8
+    depends_on:
+      - mongo-catalog
+    networks:
+      - streamline-network
+
+  playlist-service:
+    build: ./playlist-service
+    container_name: playlist-service
+    ports:
+      - "8083:8083"
+    environment:
+      - PORT=8083
+      - MONGODB_URI=mongodb://mongo-playlists:27017/streamline-playlists
+      - JWT_SECRET=a7cc916f35d26f09ec3af3dee26b2ea8
+      - CATALOG_SERVICE_URL=http://catalog-service:8082
+      - NOTIFICATION_SERVICE_URL=http://notification-service:8084
+    depends_on:
+      - mongo-playlists
+      - catalog-service
+      - notification-service
+    networks:
+      - streamline-network
+
+  notification-service:
+    build: ./notification-service
+    container_name: notification-service
+    ports:
+      - "8084:8084"
+    environment:
+      - PORT=8084
+      - SMTP_HOST=sandbox.smtp.mailtrap.io
+      - SMTP_PORT=2525
+      - SMTP_USER=90f364d48b9196
+      - SMTP_PASS=bb47be858a3b95
+    networks:
+      - streamline-network
+
+volumes:
+  mongo-users-data:
+  mongo-catalog-data:
+  mongo-playlists-data:
+
+networks:
+  streamline-network:
+    driver: bridge
