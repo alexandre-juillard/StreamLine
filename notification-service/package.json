@@ -1,0 +1,18 @@
+{
+    "name": "notification-service",
+    "version": "1.0.0",
+    "description": "StreamLine - Notification microservice",
+    "main": "index.js",
+    "scripts": {
+        "start": "node index.js"
+    },
+    "dependencies": {
+        "cors": "^2.8.6",
+        "dotenv": "^17.3.1",
+        "express": "^5.2.1",
+        "helmet": "^8.1.0",
+        "nodemailer": "^8.0.2",
+        "swagger-jsdoc": "^6.2.8",
+        "swagger-ui-express": "^5.0.1"
+    }
+}

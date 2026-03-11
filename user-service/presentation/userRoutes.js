@@ -1,7 +1,6 @@
 const express = require('express');
 const router = express.Router();
 const userService = require('../business/userService');
-const { sendWelcomeEmail } = require('../notifications/emailService');
 const authenticate = require('./authMiddleware');
 
 /**
@@ -81,7 +80,7 @@ const authenticate = require('./authMiddleware');
  *         description: Validation error or email already in use
  */
 router.post('/register', async (req, res) => {
-    // Register a new user and send a welcome email
+    // Register a new user and notify notification-service
     try {
         const { email, username, password } = req.body;
         if (!email || !username || !password) {
@@ -92,9 +91,13 @@ router.post('/register', async (req, res) => {
         }
         const user = await userService.register(email, username, password);
         try {
-            await sendWelcomeEmail(email, username);
-        } catch (emailErr) {
-            console.error('Failed to send welcome email:', emailErr.message);
+            await fetch(`${process.env.NOTIFICATION_SERVICE_URL}/notifications/welcome`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, username })
+            });
+        } catch (notifErr) {
+            console.error('Failed to call notification service:', notifErr.message);
         }
         res.status(201).json({ message: 'User registered successfully', userId: user._id });
     } catch (err) {

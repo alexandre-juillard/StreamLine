@@ -1,7 +1,6 @@
 const express = require('express');
 const router = express.Router();
 const playlistService = require('../business/playlistService');
-const { sendConfirmationEmail } = require('../notifications/emailService');
 const authenticate = require('./authMiddleware');
 
 /**
@@ -16,18 +15,11 @@ const authenticate = require('./authMiddleware');
  *         name:
  *           type: string
  *         owner:
- *           type: object
- *           properties:
- *             _id:
- *               type: string
- *             username:
- *               type: string
- *             email:
- *               type: string
+ *           type: string
  *         songs:
  *           type: array
  *           items:
- *             $ref: '#/components/schemas/Song'
+ *             type: string
  *         createdAt:
  *           type: string
  *           format: date-time
@@ -78,9 +70,13 @@ router.post('/', authenticate, async (req, res) => {
         }
         const playlist = await playlistService.createPlaylist(name.trim(), req.user.id);
         try {
-            await sendConfirmationEmail(req.user.email, `Playlist "${name.trim()}" created`);
-        } catch (emailErr) {
-            console.error('Failed to send confirmation email:', emailErr.message);
+            await fetch(`${process.env.NOTIFICATION_SERVICE_URL}/notifications/confirmation`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: req.user.email, action: `Playlist "${name.trim()}" created` })
+            });
+        } catch (notifErr) {
+            console.error('Failed to call notification service:', notifErr.message);
         }
         res.status(201).json(playlist);
     } catch (err) {
@@ -118,7 +114,7 @@ router.get('/', async (req, res) => {
  * @swagger
  * /playlists/{id}:
  *   get:
- *     summary: Get a playlist by ID
+ *     summary: Get a playlist by ID with enriched song details
  *     tags: [Playlists]
  *     parameters:
  *       - in: path
@@ -129,19 +125,16 @@ router.get('/', async (req, res) => {
  *         description: Playlist ID
  *     responses:
  *       200:
- *         description: Playlist details
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Playlist'
+ *         description: Playlist details with songs from catalog
  *       404:
  *         description: Playlist not found
  */
 router.get('/:id', async (req, res) => {
-    // Retrieve a specific playlist by its ID
+    // Retrieve a playlist with enriched song details from catalog-service
     try {
         const playlist = await playlistService.getPlaylistById(req.params.id);
-        res.json(playlist);
+        const enriched = await playlistService.enrichPlaylistWithSongs(playlist);
+        res.json(enriched);
     } catch (err) {
         if (err.name === 'CastError') {
             return res.status(400).json({ error: 'Invalid ID format.' });
@@ -185,7 +178,7 @@ router.get('/:id', async (req, res) => {
  *         description: Playlist or song not found
  */
 router.post('/:id/songs', authenticate, async (req, res) => {
-    // Add a song from the catalog to a playlist
+    // Add a song from the catalog to a playlist via catalog-service
     try {
         const { songId } = req.body;
         if (!songId) {
@@ -193,9 +186,13 @@ router.post('/:id/songs', authenticate, async (req, res) => {
         }
         const playlist = await playlistService.addSongToPlaylist(req.params.id, songId, req.user.id);
         try {
-            await sendConfirmationEmail(req.user.email, 'Song added to playlist');
-        } catch (emailErr) {
-            console.error('Failed to send confirmation email:', emailErr.message);
+            await fetch(`${process.env.NOTIFICATION_SERVICE_URL}/notifications/confirmation`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: req.user.email, action: 'Song added to playlist' })
+            });
+        } catch (notifErr) {
+            console.error('Failed to call notification service:', notifErr.message);
         }
         res.json(playlist);
     } catch (err) {
@@ -244,9 +241,13 @@ router.delete('/:id/songs/:songId', authenticate, async (req, res) => {
     try {
         const playlist = await playlistService.removeSongFromPlaylist(req.params.id, req.params.songId, req.user.id);
         try {
-            await sendConfirmationEmail(req.user.email, 'Song removed from playlist');
-        } catch (emailErr) {
-            console.error('Failed to send confirmation email:', emailErr.message);
+            await fetch(`${process.env.NOTIFICATION_SERVICE_URL}/notifications/confirmation`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: req.user.email, action: 'Song removed from playlist' })
+            });
+        } catch (notifErr) {
+            console.error('Failed to call notification service:', notifErr.message);
         }
         res.json(playlist);
     } catch (err) {

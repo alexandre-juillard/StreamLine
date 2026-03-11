@@ -1,9 +1,9 @@
 const mongoose = require('mongoose');
 
-// Initialize MongoDB connection
+// Initialize MongoDB connection for catalog-service
 const connectDatabase = async () => {
     await mongoose.connect(process.env.MONGODB_URI);
-    console.log('Connected to MongoDB');
+    console.log('Catalog Service connected to MongoDB');
 };
 
 module.exports = connectDatabase;
