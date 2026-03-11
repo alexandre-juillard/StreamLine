@@ -1,4 +1,20 @@
 services:
+  nginx:
+    image: nginx:alpine
+    container_name: nginx-lb
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - user-service
+      - catalog-service-1
+      - catalog-service-2
+      - playlist-service-1
+      - playlist-service-2
+    networks:
+      - streamline-network
+
   mongo-users:
     image: mongo:7
     container_name: mongo-users
@@ -26,8 +42,6 @@ services:
   user-service:
     build: ./user-service
     container_name: user-service
-    ports:
-      - "8081:8081"
     environment:
       - PORT=8081
       - MONGODB_URI=mongodb://mongo-users:27017/streamline-users
@@ -39,11 +53,9 @@ services:
     networks:
       - streamline-network
 
-  catalog-service:
+  catalog-service-1:
     build: ./catalog-service
-    container_name: catalog-service
-    ports:
-      - "8082:8082"
+    container_name: catalog-service-1
     environment:
       - PORT=8082
       - MONGODB_URI=mongodb://mongo-catalog:27017/streamline-catalog
@@ -53,20 +65,48 @@ services:
     networks:
       - streamline-network
 
-  playlist-service:
+  catalog-service-2:
+    build: ./catalog-service
+    container_name: catalog-service-2
+    environment:
+      - PORT=8082
+      - MONGODB_URI=mongodb://mongo-catalog:27017/streamline-catalog
+      - JWT_SECRET=a7cc916f35d26f09ec3af3dee26b2ea8
+    depends_on:
+      - mongo-catalog
+    networks:
+      - streamline-network
+
+  playlist-service-1:
     build: ./playlist-service
-    container_name: playlist-service
-    ports:
-      - "8083:8083"
+    container_name: playlist-service-1
     environment:
       - PORT=8083
       - MONGODB_URI=mongodb://mongo-playlists:27017/streamline-playlists
       - JWT_SECRET=a7cc916f35d26f09ec3af3dee26b2ea8
-      - CATALOG_SERVICE_URL=http://catalog-service:8082
+      - CATALOG_SERVICE_URL=http://nginx-lb:8080
       - NOTIFICATION_SERVICE_URL=http://notification-service:8084
     depends_on:
       - mongo-playlists
-      - catalog-service
+      - catalog-service-1
+      - catalog-service-2
+      - notification-service
+    networks:
+      - streamline-network
+
+  playlist-service-2:
+    build: ./playlist-service
+    container_name: playlist-service-2
+    environment:
+      - PORT=8083
+      - MONGODB_URI=mongodb://mongo-playlists:27017/streamline-playlists
+      - JWT_SECRET=a7cc916f35d26f09ec3af3dee26b2ea8
+      - CATALOG_SERVICE_URL=http://nginx-lb:8080
+      - NOTIFICATION_SERVICE_URL=http://notification-service:8084
+    depends_on:
+      - mongo-playlists
+      - catalog-service-1
+      - catalog-service-2
       - notification-service
     networks:
       - streamline-network
@@ -74,8 +114,6 @@ services:
   notification-service:
     build: ./notification-service
     container_name: notification-service
-    ports:
-      - "8084:8084"
     environment:
       - PORT=8084
       - SMTP_HOST=sandbox.smtp.mailtrap.io
